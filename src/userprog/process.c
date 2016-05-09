@@ -403,10 +403,13 @@ static bool setup_stack(void **esp) {
     kpage = palloc_get_page(PAL_USER | PAL_ZERO);
     if (kpage != NULL) {
         success = install_page(((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-        if (success)
-            *esp = PHYS_BASE;
-        else
+        if (success) {
+            /* Uncomment this line when argument passing has been implemented */
+            // *esp = PHYS_BASE;
+            *esp = PHYS_BASE - 12;
+        } else {
             palloc_free_page(kpage);
+        }
     }
     return success;
 }
