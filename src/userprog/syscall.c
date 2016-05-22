@@ -15,7 +15,7 @@ void syscall_init(void) {
 }
 
 static void syscall_handler(struct intr_frame *f UNUSED) {
-    void *stack_ptr = (uint8_t *) f->esp;
+    void *stack_ptr = f->esp;
     int syscall_no = read_arg32(stack_ptr);
 
     switch (syscall_no) {
@@ -23,12 +23,12 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
             shutdown_power_off();
             break;
         case SYS_EXIT:
-            sys_exit(read_arg32(stack_ptr + 32));
+            sys_exit(read_arg32(stack_ptr + sizeof(int32_t)));
             break;
         case SYS_WRITE:
-            sys_write(read_arg32(stack_ptr + 32), 
-                      (void *) read_arg32(stack_ptr + 64),
-                      read_arg32(stack_ptr + 96));
+            sys_write(read_arg32(stack_ptr + sizeof(int32_t)), 
+                      (void *) read_arg32(stack_ptr + sizeof(int32_t) * 2),
+                      read_arg32(stack_ptr + sizeof(int32_t) * 3));
             break;
         case SYS_EXEC:
         case SYS_WAIT:
@@ -70,7 +70,7 @@ void sys_write(int fd, void *buffer, unsigned size) {
         putbuf((char *) buffer, (size_t) size);
     }
     else {
-        printf("write to non-console\n");
+        printf("write to non-console %d\n", fd);
         thread_exit();
     }
 
