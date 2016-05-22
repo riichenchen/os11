@@ -18,6 +18,14 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 
+#define ARG_MAX_LENGTH 4096
+#define MAX_ARGS 64
+
+/*struct cmdline_arg {
+    struct list_elem elem;
+    char arg[ARG_MAX_LENGTH];
+};*/
+
 static thread_func start_process NO_RETURN;
 static bool load(const char *cmdline, void (**eip)(void), void **esp);
 
@@ -28,6 +36,7 @@ static bool load(const char *cmdline, void (**eip)(void), void **esp);
 tid_t process_execute(const char *file_name) {
     char *fn_copy;
     tid_t tid;
+
 
     /* Make a copy of FILE_NAME.
        Otherwise there's a race between the caller and load(). */
@@ -80,6 +89,9 @@ static void start_process(void *file_name_) {
     This function will be implemented in problem 2-2.  For now, it does
     nothing. */
 int process_wait(tid_t child_tid UNUSED) {
+    while(true) {
+
+    }
     return -1;
 }
 
@@ -203,6 +215,51 @@ bool load(const char *file_name, void (**eip) (void), void **esp) {
     if (t->pagedir == NULL) 
         goto done;
     process_activate();
+
+
+    /* Parse "file_name" to separate file_name and arguments by spaces.
+    Insert directly into the stack. */
+    // struct cmdline_arg args[MAX_ARGS];
+    int num_args = 0;
+    char args[MAX_ARGS][ARG_MAX_LENGTH];
+    // char * args[MAX_ARGS];
+    printf("I made it. file_name = %s\n", file_name);
+    
+/*    struct cmdline_arg {
+    struct list_elem elem;
+    char arg[ARG_MAX_LENGTH];
+};
+
+    struct list arg_list;
+    list_init (&arg_list); */
+    char *token, *save_ptr;
+
+    for (token = strtok_r(file_name, " ", &save_ptr); token != NULL;
+         token = strtok_r(NULL, " ", &save_ptr)) {
+        // struct list_elem arg_elem;
+        // arg_elem.arg = token;
+        // list_push_front(&arg_list, &arg_elem.elem);
+        if(num_args < MAX_ARGS) {
+            int tokenLen = strlen(token);
+            if(tokenLen > 0 && tokenLen < ARG_MAX_LENGTH) {
+                strlcpy(args[num_args], token, strlen(token));
+                num_args++;
+            } else {
+                printf("load: Tokenize failed. token length 0 or too long\n");
+                goto done;
+            }
+        } else {
+            printf("load: Failed. More than MAX_ARGS arguments.\n");
+            goto done;
+        }
+    }
+
+    if(num_args == 0) {
+        printf("load: Failed. file_name is literally nothing.\n");
+        goto done;
+    }
+
+    file_name = args[0];
 
     /* Open executable file. */
     file = filesys_open(file_name);
