@@ -19,6 +19,7 @@
 #include "threads/vaddr.h"
 
 #define ARG_MAX_LENGTH 4096
+#define MAX_ARGS 512
 
 /*struct cmdline_arg {
     struct list_elem elem;
@@ -56,15 +57,108 @@ tid_t process_execute(const char *file_name) {
 static void start_process(void *file_name_) {
     char *file_name = file_name_;
     struct intr_frame if_;
-    bool success;
+    bool success = false;
 
     /* Initialize interrupt frame and load executable. */
     memset(&if_, 0, sizeof(if_));
     if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
     if_.cs = SEL_UCSEG;
     if_.eflags = FLAG_IF | FLAG_MBS;
-    success = load(file_name, &if_.eip, &if_.esp);
 
+    char *name_copy = palloc_get_page(0);
+    if (name_copy == NULL)
+        goto done;
+    strlcpy(name_copy, (char *) file_name_, PGSIZE);
+
+    char *name, *name_save_ptr;
+    name = strtok_r(name_copy, " ", &name_save_ptr);
+    success = load(name, &if_.eip, &if_.esp);
+    //success = load("echo", &if_.eip, &if_.esp);
+    palloc_free_page(name_copy);
+
+    //printf("%x \n", (uint32_t) if_.esp);
+
+     /* Parse "file_name" to separate file_name and arguments by spaces.
+    Insert directly into the stack. */
+    // struct cmdline_arg args[MAX_ARGS];
+    // int num_args = 0;
+    // char arg[ARG_MAX_LENGTH];
+    // char * args[MAX_ARGS];
+    
+/*    struct cmdline_arg {
+    struct list_elem elem;
+    char arg[ARG_MAX_LENGTH];
+};
+
+    struct list arg_list;
+    list_init (&arg_list); */
+    char *arg_locs[MAX_ARGS];
+    int argc = 0;
+    char *token, *save_ptr;
+    //printf("Orig: %s\n", file_name);
+    strrev(file_name, strlen(file_name));
+
+    for (token = strtok_r(file_name, " ", &save_ptr); token != NULL;
+         token = strtok_r(NULL, " ", &save_ptr)) {
+            //printf("%s\n", token);
+            int tokenLen = strlen(token);
+            if(tokenLen > 0 && tokenLen < ARG_MAX_LENGTH) {
+                strrev(token, tokenLen);
+                //printf("%s\n", token);
+                if_.esp -= (tokenLen + 1);
+                //printf("%x \n", (uint32_t) if_.esp);
+                strlcpy(if_.esp, token, tokenLen + 1);
+                //printf("%s\n", (char *) if_.esp);
+                arg_locs[argc++] = if_.esp;
+            } else {
+                printf("load: Tokenize failed. token length 0 or too long\n");
+                goto done;
+            }
+            
+            if (argc >= MAX_ARGS) {
+                printf("load: Failed. More than MAX_ARGS arguments.\n");
+                goto done;
+            }
+    }
+
+    if_.esp = (void *)((uint32_t)if_.esp & ~3);
+    //printf("%x \n", (uint32_t) if_.esp);
+
+    if_.esp -= sizeof(char *);
+    *((char **) if_.esp) = 0;
+    //printf("%x \n", (uint32_t) if_.esp);
+
+    int i;
+    for (i = argc - 1; i >= 0; i--) {
+        if_.esp -= sizeof(char *);
+        *((char **) if_.esp) = arg_locs[i];
+        //printf("%x \n", (uint32_t) if_.esp);
+    }
+
+    if_.esp -= sizeof(char **);
+    *((char ***) if_.esp) = if_.esp + sizeof(char **);    
+    //printf("%x \n", (uint32_t) if_.esp);
+
+    if_.esp -= sizeof(int);
+    *((int *) if_.esp) = argc;  
+    //printf("%x \n", (uint32_t) if_.esp);
+
+    if_.esp -= sizeof(uint32_t);
+    *((uint32_t *) if_.esp) = 0;
+
+    //printf("%x \n", (uint32_t) if_.esp);
+    //hex_dump(0, if_.esp, 160, true);
+
+    // if(num_args == 0) {
+    //     printf("load: Failed. file_name is literally nothing.\n");
+    //     goto done;
+    // }
+
+    // file_name = args[0];
+    // printf("file-name? %s\n", file_name);
+
+
+done:
     /* If load failed, quit. */
     palloc_free_page(file_name);
     if (!success) 
@@ -215,53 +309,6 @@ bool load(const char *file_name, void (**eip) (void), void **esp) {
     if (t->pagedir == NULL) 
         goto done;
     process_activate();
-
-
-    /* Parse "file_name" to separate file_name and arguments by spaces.
-    Insert directly into the stack. */
-    // struct cmdline_arg args[MAX_ARGS];
-    // int num_args = 0;
-    // char arg[ARG_MAX_LENGTH];
-    // char * args[MAX_ARGS];
-    
-/*    struct cmdline_arg {
-    struct list_elem elem;
-    char arg[ARG_MAX_LENGTH];
-};
-
-    struct list arg_list;
-    list_init (&arg_list); */
-    char *token, *save_ptr;
-    strrev(file_name, strlen(file_name));
-
-    for (token = strtok_r(file_name, " ", &save_ptr); token != NULL;
-         token = strtok_r(NULL, " ", &save_ptr)) {
-        // struct list_elem arg_elem;
-        // arg_elem.arg = token;
-        // list_push_front(&arg_list, &arg_elem.elem);
-        // if(num_args < MAX_ARGS) {
-            int tokenLen = strlen(token);
-            if(tokenLen > 0 && tokenLen < ARG_MAX_LENGTH) {
-                strrev(token, tokenLen);
-                // strlcpy(args[num_args], token, strlen(token));
-                // num_args++;
-            } else {
-                printf("load: Tokenize failed. token length 0 or too long\n");
-                goto done;
-            }
-        // } else {
-        //     printf("load: Failed. More than MAX_ARGS arguments.\n");
-        //     goto done;
-        // }
-    }
-
-    // if(num_args == 0) {
-    //     printf("load: Failed. file_name is literally nothing.\n");
-    //     goto done;
-    // }
-
-    // file_name = args[0];
-    // printf("file-name? %s\n", file_name);
 
     /* Open executable file. */
     file = filesys_open(file_name);
@@ -465,7 +512,7 @@ static bool setup_stack(void **esp) {
         if (success) {
             /* Uncomment this line when argument passing has been implemented */
             // *esp = PHYS_BASE;
-            *esp = PHYS_BASE - 12;
+            *esp = PHYS_BASE;
         } else {
             palloc_free_page(kpage);
         }
