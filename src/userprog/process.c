@@ -19,7 +19,6 @@
 #include "threads/vaddr.h"
 
 #define ARG_MAX_LENGTH 4096
-#define MAX_ARGS 64
 
 /*struct cmdline_arg {
     struct list_elem elem;
@@ -28,6 +27,7 @@
 
 static thread_func start_process NO_RETURN;
 static bool load(const char *cmdline, void (**eip)(void), void **esp);
+static void strrev(char *str, int len); /* Not thread safe */
 
 /*! Starts a new thread running a user program loaded from FILENAME.  The new
     thread may be scheduled (and may even exit) before process_execute()
@@ -220,10 +220,9 @@ bool load(const char *file_name, void (**eip) (void), void **esp) {
     /* Parse "file_name" to separate file_name and arguments by spaces.
     Insert directly into the stack. */
     // struct cmdline_arg args[MAX_ARGS];
-    int num_args = 0;
-    char args[MAX_ARGS][ARG_MAX_LENGTH];
+    // int num_args = 0;
+    // char arg[ARG_MAX_LENGTH];
     // char * args[MAX_ARGS];
-    printf("I made it. file_name = %s\n", file_name);
     
 /*    struct cmdline_arg {
     struct list_elem elem;
@@ -233,33 +232,36 @@ bool load(const char *file_name, void (**eip) (void), void **esp) {
     struct list arg_list;
     list_init (&arg_list); */
     char *token, *save_ptr;
+    strrev(file_name, strlen(file_name));
 
     for (token = strtok_r(file_name, " ", &save_ptr); token != NULL;
          token = strtok_r(NULL, " ", &save_ptr)) {
         // struct list_elem arg_elem;
         // arg_elem.arg = token;
         // list_push_front(&arg_list, &arg_elem.elem);
-        if(num_args < MAX_ARGS) {
+        // if(num_args < MAX_ARGS) {
             int tokenLen = strlen(token);
             if(tokenLen > 0 && tokenLen < ARG_MAX_LENGTH) {
-                strlcpy(args[num_args], token, strlen(token));
-                num_args++;
+                strrev(token, tokenLen);
+                // strlcpy(args[num_args], token, strlen(token));
+                // num_args++;
             } else {
                 printf("load: Tokenize failed. token length 0 or too long\n");
                 goto done;
             }
-        } else {
-            printf("load: Failed. More than MAX_ARGS arguments.\n");
-            goto done;
-        }
+        // } else {
+        //     printf("load: Failed. More than MAX_ARGS arguments.\n");
+        //     goto done;
+        // }
     }
 
-    if(num_args == 0) {
-        printf("load: Failed. file_name is literally nothing.\n");
-        goto done;
-    }
+    // if(num_args == 0) {
+    //     printf("load: Failed. file_name is literally nothing.\n");
+    //     goto done;
+    // }
 
-    file_name = args[0];
+    // file_name = args[0];
+    // printf("file-name? %s\n", file_name);
 
     /* Open executable file. */
     file = filesys_open(file_name);
@@ -489,3 +491,12 @@ static bool install_page(void *upage, void *kpage, bool writable) {
             pagedir_set_page(t->pagedir, upage, kpage, writable));
 }
 
+/* Reverses string str[:len] in place. Not threadsafe. Beware. BEWARE. */
+static void strrev(char *str, int len) {
+    int i;
+    for(i = 0; i < len / 2; i++) {
+        char temp = str[i];
+        str[i] = str[len - 1 - i];
+        str[len - 1 - i] = temp;
+    }
+}
