@@ -183,10 +183,10 @@ done:
     This function will be implemented in problem 2-2.  For now, it does
     nothing. */
 int process_wait(tid_t child_tid UNUSED) {
-    while(true) {
+    while (1) {
 
     }
-    return -1;
+    //return -1;
 }
 
 /*! Free the current process's resources. */
@@ -510,8 +510,6 @@ static bool setup_stack(void **esp) {
     if (kpage != NULL) {
         success = install_page(((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
         if (success) {
-            /* Uncomment this line when argument passing has been implemented */
-            // *esp = PHYS_BASE;
             *esp = PHYS_BASE;
         } else {
             palloc_free_page(kpage);
