@@ -129,7 +129,7 @@ static void start_process(void *file_name_) {
     //printf("%x \n", (uint32_t) if_.esp);
 
     int i;
-    for (i = argc - 1; i >= 0; i--) {
+    for (i = 0; i < argc; i++) {
         if_.esp -= sizeof(char *);
         *((char **) if_.esp) = arg_locs[i];
         //printf("%x \n", (uint32_t) if_.esp);
