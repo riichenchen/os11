@@ -72,6 +72,7 @@ static void start_process(void *file_name_) {
 
     char *name, *name_save_ptr;
     name = strtok_r(name_copy, " ", &name_save_ptr);
+    strlcpy(thread_current()->name, name, 16);
     success = load(name, &if_.eip, &if_.esp);
     //success = load("echo", &if_.eip, &if_.esp);
     palloc_free_page(name_copy);
