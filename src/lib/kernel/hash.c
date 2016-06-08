@@ -8,6 +8,8 @@
 #include "hash.h"
 #include "../debug.h"
 #include "threads/malloc.h"
+// #include "filesys/file.c"
+#include "filesys/file.h"
 
 #define list_elem_to_hash_elem(LIST_ELEM)                       \
         list_entry(LIST_ELEM, struct hash_elem, list_elem)
@@ -428,3 +430,19 @@ remove_elem (struct hash *h, struct hash_elem *e)
   list_remove (&e->list_elem);
 }
 
+/* Less function for my hash table for file descriptors */
+bool fd_less (const struct hash_elem *a_, const struct hash_elem *b_,
+           void *aux UNUSED)
+{
+  const struct file *a = hash_entry (a_, struct file, hash_elem);
+  const struct file *b = hash_entry (b_, struct file, hash_elem);
+
+  return a->fd < b->fd;
+}
+
+/* Returns a hash value for hash_elem with a particular file descriptor */
+unsigned fd_hash (const struct hash_elem *p_, void *aux UNUSED)
+{
+  const struct file *f = hash_entry (p_, struct file, hash_elem);
+  return hash_bytes (&f->fd, sizeof f->fd);
+}

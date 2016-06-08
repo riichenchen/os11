@@ -2,13 +2,9 @@
 #include <debug.h>
 #include "filesys/inode.h"
 #include "threads/malloc.h"
+#include <hash.h>
 
-/*! An open file. */
-struct file {
-    struct inode *inode;        /*!< File's inode. */
-    off_t pos;                  /*!< Current position. */
-    bool deny_write;            /*!< Has file_deny_write() been called? */
-};
+
 
 /*! Opens a file for the given INODE, of which it takes ownership,
     and returns the new file.  Returns a null pointer if an
@@ -19,6 +15,12 @@ struct file * file_open(struct inode *inode) {
         file->inode = inode;
         file->pos = 0;
         file->deny_write = false;
+        file->fd = next_fd;
+        next_fd++;
+        
+        struct hash_elem *success = hash_insert(hash_table, &file->hash_elem);
+        ASSERT(success == NULL);        
+
         return file;
     }
     else {
@@ -128,4 +130,14 @@ off_t file_tell(struct file *file) {
     ASSERT(file != NULL);
     return file->pos;
 }
+
+/* Returns a file from the file descriptor via a lookup in the hash table. */
+struct file *file_lookup_from_fd(int fd) {
+    struct file f;
+    struct hash_elem *e;
+    f.fd = fd;
+    e = hash_find(hash_table, &f.hash_elem);
+    return e != NULL ? hash_entry (e, struct file, hash_elem) : NULL;
+}
+
 

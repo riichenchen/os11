@@ -100,4 +100,9 @@ unsigned hash_bytes (const void *, size_t);
 unsigned hash_string (const char *);
 unsigned hash_int (int);
 
+
+bool fd_less(const struct hash_elem *a_, const struct hash_elem *b_, void *aux);
+unsigned fd_hash (const struct hash_elem *p_, void *aux);
+
+
 #endif /* lib/kernel/hash.h */
