@@ -6,6 +6,7 @@
 #include "filesys/free-map.h"
 #include "filesys/inode.h"
 #include "filesys/directory.h"
+// #include <hash.h>
 
 /*! Partition that contains the file system. */
 struct block *fs_device;
@@ -26,6 +27,12 @@ void filesys_init(bool format) {
         do_format();
 
     free_map_open();
+
+    next_fd = 1;
+    /* Initialize the hash table for converting fd to file */
+    if(!hash_init(hash_table, fd_hash, fd_less, NULL)) {
+        PANIC("Unable to initialize the hash table");
+    }
 }
 
 /*! Shuts down the file system module, writing any unwritten data to disk. */
@@ -84,4 +91,5 @@ static void do_format(void) {
     free_map_close();
     printf("done.\n");
 }
+
 
