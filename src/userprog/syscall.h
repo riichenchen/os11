@@ -3,7 +3,7 @@
 
 void syscall_init(void);
 void sys_exit(int status);
-void sys_write(int fd, void *buffer, unsigned size);
+int sys_write(int fd, void *buffer, unsigned size);
 int read_arg32(void *ptr);
 
 #endif /* userprog/syscall.h */

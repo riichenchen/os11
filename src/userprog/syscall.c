@@ -5,6 +5,7 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "devices/shutdown.h"
+#include "filesys/file.h"
 
 #define BUFFER_CHUNK 256
 
@@ -34,7 +35,7 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
             sys_exit(read_arg32(stack_ptr + sizeof(int32_t)));
             break;
         case SYS_WRITE:
-            sys_write(read_arg32(stack_ptr + sizeof(int32_t)), 
+            f->eax = (int) sys_write(read_arg32(stack_ptr + sizeof(int32_t)), 
                       (void *) read_arg32(stack_ptr + sizeof(int32_t) * 2),
                       read_arg32(stack_ptr + sizeof(int32_t) * 3));
             break;
@@ -106,7 +107,9 @@ void sys_exit(int status) {
    @param size The number of bytes to write
    @return The number of bytes written
 */
-void sys_write(int fd, void *buffer, unsigned size) {
+int sys_write(int fd, void *buffer, unsigned size) {
+    int bytes_written = 0;
+
     /* fd == 1: Write to console */
     if (fd == 1) {
         if (readbyte_user((uint8_t *) buffer) == -1 ||
@@ -119,13 +122,17 @@ void sys_write(int fd, void *buffer, unsigned size) {
             putbuf((char *) buffer, BUFFER_CHUNK);
             buffer += BUFFER_CHUNK;
             size -= BUFFER_CHUNK;
+            bytes_written += BUFFER_CHUNK;
         }
         putbuf((char *) buffer, (size_t) size);
-    }
-    else {
+        return bytes_written + size;
+    } else {
         printf("write to non-console %d\n", fd);
-        thread_exit();
+        return file_write(file_lookup_from_fd(fd), buffer, size);
+        // thread_exit();
     }
+
+    return bytes_written;
 
 }
 
