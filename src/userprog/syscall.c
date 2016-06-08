@@ -14,6 +14,12 @@ void syscall_init(void) {
     intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
+/*
+   Handler for system calls. Retreives the stack pointer from an interrupt
+   frame, and gets the syscall number. The appropriate syscall is then 
+   executed via a switch statement.
+   @param f The interrupt frame
+*/
 static void syscall_handler(struct intr_frame *f UNUSED) {
     void *stack_ptr = f->esp;
     int syscall_no = read_arg32(stack_ptr);
@@ -47,6 +53,41 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
 
 }
 
+/* ===================Functions to validate user pointers===================*/
+
+/*
+   Reads a 32-bit integer at ptr. Terminates if the given pointer is invalid
+   @param ptr The address to dereference
+   @return The deferenced integer
+*/
+int read_arg32(void *ptr) {
+    if (readbyte_user((uint8_t *) ptr) == -1) {
+        sys_exit(-1);
+    }
+    return *((uint32_t *) ptr);
+}
+
+/*
+   Attempts to read a single byte at uaddr. Checks that the address is in 
+   user space, then dereferences. The page fault handler returns -1 if the
+   page is unmapped.
+   @param uddr The address to dereference
+   @return The deferenced value, or -1 if an error occurred
+*/
+static int readbyte_user(const uint8_t *uaddr) {
+    if (!uaddr || !is_user_vaddr(uaddr)) {
+        return -1;
+    }
+    int result;
+    asm ("movl $1f, %0; movzbl %1, %0; 1:"
+        : "=&a" (result) : "m" (*uaddr));
+    return result;
+}
+
+/*
+   Prints an exit message, sets the thread's exit status, then exits.
+   @param status The status to exit with (0 success, error otherwise)
+*/
 void sys_exit(int status) {
     struct thread *curr = thread_current();
     curr->exit_status = status;
@@ -54,6 +95,15 @@ void sys_exit(int status) {
     thread_exit();
 }
 
+/*
+   Writes a specified number of bytes from a buffer to a file. Checks that
+   the buffer lies completely within user space, then writes. Returns the
+   number of bytes written.
+   @param fd The file descriptor of the file to write to
+   @param buffer The buffer to copy from
+   @param size The number of bytes to write
+   @return The number of bytes written
+*/
 void sys_write(int fd, void *buffer, unsigned size) {
     if (fd == 1) {
         if (readbyte_user((uint8_t *) buffer) == -1 ||
@@ -76,19 +126,3 @@ void sys_write(int fd, void *buffer, unsigned size) {
 
 }
 
-int read_arg32(void *ptr) {
-    if (readbyte_user((uint8_t *) ptr) == -1) {
-        sys_exit(-1);
-    }
-    return *((uint32_t *) ptr);
-}
-
-static int readbyte_user(const uint8_t *uaddr) {
-    if (!uaddr || !is_user_vaddr(uaddr)) {
-        return -1;
-    }
-    int result;
-    asm ("movl $1f, %0; movzbl %1, %0; 1:"
-        : "=&a" (result) : "m" (*uaddr));
-    return result;
-}
