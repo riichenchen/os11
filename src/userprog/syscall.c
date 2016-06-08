@@ -6,6 +6,8 @@
 #include "threads/vaddr.h"
 #include "devices/shutdown.h"
 
+#define BUFFER_CHUNK 256
+
 static void syscall_handler(struct intr_frame *);
 static int readbyte_user(const uint8_t *uaddr);
 
@@ -55,6 +57,7 @@ void sys_exit(int status) {
 }
 
 void sys_write(int fd, void *buffer, unsigned size) {
+    /* fd == 1: Write to console */
     if (fd == 1) {
         if (readbyte_user((uint8_t *) buffer) == -1 ||
             readbyte_user((uint8_t *)(buffer + size - 1)) == -1) {
@@ -62,10 +65,10 @@ void sys_write(int fd, void *buffer, unsigned size) {
         }
 
         /* Output buffers longer than 300 in chunks */
-        while (size > 300) {
-            putbuf((char *) buffer, 300);
-            buffer += 300;
-            size -= 300;
+        while (size > BUFFER_CHUNK) {
+            putbuf((char *) buffer, BUFFER_CHUNK);
+            buffer += BUFFER_CHUNK;
+            size -= BUFFER_CHUNK;
         }
         putbuf((char *) buffer, (size_t) size);
     }

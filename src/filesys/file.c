@@ -8,7 +8,11 @@ struct file {
     struct inode *inode;        /*!< File's inode. */
     off_t pos;                  /*!< Current position. */
     bool deny_write;            /*!< Has file_deny_write() been called? */
+    struct hash_elem hash_elem; /* Needed for hash table hashing fd to file */
+    int fd;                     /* global file descriptor for this file */
 };
+
+int next_fd = 1;
 
 /*! Opens a file for the given INODE, of which it takes ownership,
     and returns the new file.  Returns a null pointer if an
@@ -19,6 +23,10 @@ struct file * file_open(struct inode *inode) {
         file->inode = inode;
         file->pos = 0;
         file->deny_write = false;
+        
+        file->fd = next_fd;
+        next_fd++;
+
         return file;
     }
     else {
