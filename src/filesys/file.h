@@ -13,12 +13,7 @@ struct file {
     int fd;                     /* global file descriptor for this file */
 };
 
-int next_fd;
-
 struct inode;
-
-/* Hash table for accessing the file from the fd. */
-struct hash *hash_table;
 
 /* Opening and closing files. */
 struct file *file_open (struct inode *);
@@ -40,8 +35,6 @@ void file_allow_write (struct file *);
 void file_seek (struct file *, off_t);
 off_t file_tell (struct file *);
 off_t file_length (struct file *);
-
-struct file *file_lookup_from_fd(int fd);
 
 #endif /* filesys/file.h */
 

@@ -14,13 +14,7 @@ struct file * file_open(struct inode *inode) {
     if (inode != NULL && file != NULL) {
         file->inode = inode;
         file->pos = 0;
-        file->deny_write = false;
-        file->fd = next_fd;
-        next_fd++;
-        
-        struct hash_elem *success = hash_insert(hash_table, &file->hash_elem);
-        ASSERT(success == NULL);        
-
+        file->deny_write = false;   
         return file;
     }
     else {
@@ -129,15 +123,6 @@ void file_seek(struct file *file, off_t new_pos) {
 off_t file_tell(struct file *file) {
     ASSERT(file != NULL);
     return file->pos;
-}
-
-/* Returns a file from the file descriptor via a lookup in the hash table. */
-struct file *file_lookup_from_fd(int fd) {
-    struct file f;
-    struct hash_elem *e;
-    f.fd = fd;
-    e = hash_find(hash_table, &f.hash_elem);
-    return e != NULL ? hash_entry (e, struct file, hash_elem) : NULL;
 }
 
 
