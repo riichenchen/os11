@@ -6,12 +6,16 @@
 #include "filesys/free-map.h"
 #include "filesys/inode.h"
 #include "filesys/directory.h"
+#include "threads/malloc.h"
 // #include <hash.h>
 
 /*! Partition that contains the file system. */
 struct block *fs_device;
 
 static void do_format(void);
+/* Hash table for accessing the file from the fd. */
+static struct hash *hash_table;
+static int next_fd;
 
 /*! Initializes the file system module.
     If FORMAT is true, reformats the file system. */
@@ -23,16 +27,18 @@ void filesys_init(bool format) {
     inode_init();
     free_map_init();
 
+    next_fd = 1;
+    hash_table = (struct hash *)malloc(sizeof(struct hash));
+    /* Initialize the hash table for converting fd to file */
+    if(!hash_init(hash_table, fd_hash, fd_less, NULL)) {
+        PANIC("Unable to initialize the hash table");
+    }
+
     if (format) 
         do_format();
 
     free_map_open();
 
-    next_fd = 1;
-    /* Initialize the hash table for converting fd to file */
-    if(!hash_init(hash_table, fd_hash, fd_less, NULL)) {
-        PANIC("Unable to initialize the hash table");
-    }
 }
 
 /*! Shuts down the file system module, writing any unwritten data to disk. */
@@ -68,7 +74,15 @@ struct file * filesys_open(const char *name) {
         dir_lookup(dir, name, &inode);
     dir_close(dir);
 
-    return file_open(inode);
+    struct file *file = file_open(inode);
+    file->fd = next_fd;
+    next_fd++;
+        
+    struct hash_elem *success = hash_insert(hash_table, &file->hash_elem);
+    ASSERT(success == NULL);     
+
+    return file;
+    //return file_open(inode);
 }
 
 /*! Deletes the file named NAME.  Returns true if successful, false on failure.
@@ -92,4 +106,12 @@ static void do_format(void) {
     printf("done.\n");
 }
 
+/* Returns a file from the file descriptor via a lookup in the hash table. */
+struct file *file_lookup_from_fd(int fd) {
+    struct file f;
+    struct hash_elem *e;
+    f.fd = fd;
+    e = hash_find(hash_table, &f.hash_elem);
+    return e != NULL ? hash_entry (e, struct file, hash_elem) : NULL;
+}
 
