@@ -38,9 +38,9 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
             sys_exit(read_arg32(stack_ptr + sizeof(int32_t)));
             break;
         case SYS_WRITE:
-            f->eax = (int) sys_write(read_arg32(stack_ptr + sizeof(int32_t)), 
-                      (void *) read_arg32(stack_ptr + sizeof(int32_t) * 2),
-                      read_arg32(stack_ptr + sizeof(int32_t) * 3));
+            f->eax = sys_write(read_arg32(stack_ptr + sizeof(int32_t)), 
+                     (void *) read_arg32(stack_ptr + sizeof(int32_t) * 2),
+                     read_arg32(stack_ptr + sizeof(int32_t) * 3));
             break;
         case SYS_EXEC:
         case SYS_WAIT:
@@ -264,7 +264,7 @@ int sys_open(const char *file) {
     else {
         struct thread *curr = thread_current();
         /* Need to assign file descriptor to thread? */
-        return get_fd(f);
+        return f->fd;
     }
 }
 

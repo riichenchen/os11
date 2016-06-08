@@ -7,7 +7,7 @@ int read_arg32(void *ptr);
 
 void syscall_init(void);
 void sys_exit(int status);
-void sys_write(int fd, void *buffer, unsigned size);
+int sys_write(int fd, void *buffer, unsigned size);
 bool sys_create(const char *file, unsigned i_size);
 bool sys_remove(const char *file);
 int sys_filesize(int fd);
