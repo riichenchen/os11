@@ -184,9 +184,47 @@ done:
     This function will be implemented in problem 2-2.  For now, it does
     nothing. */
 int process_wait(tid_t child_tid UNUSED) {
-    while (1) {
+    printf("PROCESS_WAIT. HERPDERP HERPDERP. tryna find %d\n", child_tid);
+    /* Look for child in the current thread's list of children */
+    struct thread *cur = thread_current();
+    struct thread *child = NULL;
+    struct list_elem *e;
 
+    printf("me is %d\n", cur->tid);
+
+    for (e = list_begin(&cur->child_list); e != list_end(&cur->child_list);
+           e = list_next(e)) {
+        struct thread *f = list_entry(e, struct thread, elem);
+        printf("child %d\n", f->tid);
+        if(f->tid == child_tid) {
+            child = f;
+            printf("yoyoyo i found your lost child\n");
+            break;
+        }
     }
+
+    /* We've waited for and killed the child already as it is not in the list
+    of children. */
+    if(child == NULL) {
+        printf("it's a dead child at that\n");
+        return -1;
+    } else {
+        printf("get rid of the body\n");
+        list_remove(&child->childelem);
+    
+        printf("and wait for the child to die\n");
+        /* Wait for the child to die */
+        sema_down(&child->semapore);
+
+        printf("return it, %d\n", child->exit_status);
+        /* Reap the dead child */
+        return child->exit_status;
+    }
+
+
+    // while (1) {
+
+    // }
     //return -1;
 }
 

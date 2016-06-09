@@ -18,6 +18,8 @@ static void validate_buffer(void *buf, unsigned size);
 
 void syscall_init(void) {
     intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
+
+    printf("SETUP SYSCALL_INIT\n");
 }
 
 /*
@@ -29,6 +31,8 @@ void syscall_init(void) {
 static void syscall_handler(struct intr_frame *f UNUSED) {
     void *stack_ptr = f->esp;
     int syscall_no = read_arg32(stack_ptr);
+
+    printf("syscall_no = %d. AINT THAT SWELL HUH AINT IT\n", syscall_no);
 
     switch (syscall_no) {
         case SYS_HALT:
@@ -43,27 +47,39 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
                      read_arg32(stack_ptr + sizeof(int32_t) * 3));
             break;
         case SYS_EXEC:
+            f->eax = sys_exec((char *)read_arg32(stack_ptr + sizeof(int32_t)));
+            break;
         case SYS_WAIT:
+            f->eax = sys_wait((tid_t)read_arg32(stack_ptr + sizeof(int32_t)));
+            break;
         case SYS_CREATE:
             f->eax = sys_create((char *)read_arg32(stack_ptr + sizeof(int32_t)),
                                 read_arg32(stack_ptr + sizeof(int32_t) * 2));
+            break;
         case SYS_REMOVE:
             f->eax = sys_remove((char *)read_arg32(stack_ptr + sizeof(int32_t)));
+            break;
         case SYS_FILESIZE:
             f->eax = sys_filesize(read_arg32(stack_ptr + sizeof(int32_t)));
+            break;
         case SYS_READ:
             f->eax = sys_read(read_arg32(stack_ptr + sizeof(int32_t)), 
                      (void *) read_arg32(stack_ptr + sizeof(int32_t) * 2),
                      read_arg32(stack_ptr + sizeof(int32_t) * 3));
+            break;
         case SYS_SEEK:
             sys_seek(read_arg32(stack_ptr + sizeof(int32_t)),
                      read_arg32(stack_ptr + sizeof(int32_t) * 2));
+            break;
         case SYS_TELL:
             f->eax = sys_tell(read_arg32(stack_ptr + sizeof(int32_t)));
+            break;
         case SYS_OPEN:
             f->eax = sys_open((char *)read_arg32(stack_ptr + sizeof(int32_t)));
+            break;
         case SYS_CLOSE:
             sys_close(read_arg32(stack_ptr + sizeof(int32_t)));
+            break;
         default:
             printf("Invalid system call: %d!\n", syscall_no);
             thread_exit();
@@ -126,6 +142,20 @@ void sys_exit(int status) {
     curr->exit_status = status;
     printf("%s: exit(%d)\n", curr->name, status);
     thread_exit();
+}
+
+/*
+    Waiting.
+*/
+int sys_wait(tid_t pid) {
+    return process_wait(pid);
+}
+
+/*
+    Execute cmd_line
+*/
+int sys_exec(const char *cmd_line) {
+    return process_execute(cmd_line);
 }
 
 /*

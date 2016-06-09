@@ -2,6 +2,8 @@
 #define USERPROG_SYSCALL_H
 
 #include <stdbool.h>
+#include "threads/thread.h"
+#include "userprog/process.h"
 
 int read_arg32(void *ptr);
 
@@ -16,6 +18,8 @@ void sys_seek(int fd, unsigned position);
 unsigned sys_tell(int fd);
 int sys_open(const char *file);
 void sys_close(int fd);
+int sys_wait(tid_t pid);
+int sys_exec(const char *cmd_line);
 
 
 #endif /* userprog/syscall.h */
