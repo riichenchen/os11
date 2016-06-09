@@ -275,9 +275,10 @@ void thread_exit(void) {
        and schedule another process.  That process will destroy us
        when it calls thread_schedule_tail(). */
     intr_disable();
-    list_remove(&thread_current()->allelem);
-    thread_current()->status = THREAD_DYING;
-    sema_up(&thread_current()->semapore);
+    struct thread *curr = thread_current();
+    list_remove(&curr->allelem);
+    curr->status = THREAD_DYING;
+    sema_up(&curr->semapore);
     schedule();
     NOT_REACHED();
 }
@@ -491,7 +492,7 @@ void thread_schedule_tail(struct thread *prev) {
     if (prev != NULL && prev->status == THREAD_DYING &&
         prev != initial_thread) {
         ASSERT(prev != cur);
-        palloc_free_page(prev);
+        //palloc_free_page(prev);
     }
 }
 

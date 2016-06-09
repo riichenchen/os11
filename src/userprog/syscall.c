@@ -32,8 +32,6 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
     void *stack_ptr = f->esp;
     int syscall_no = read_arg32(stack_ptr);
 
-    printf("syscall_no = %d. AINT THAT SWELL HUH AINT IT\n", syscall_no);
-
     switch (syscall_no) {
         case SYS_HALT:
             shutdown_power_off();

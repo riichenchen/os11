@@ -194,7 +194,7 @@ int process_wait(tid_t child_tid UNUSED) {
 
     for (e = list_begin(&cur->child_list); e != list_end(&cur->child_list);
            e = list_next(e)) {
-        struct thread *f = list_entry(e, struct thread, elem);
+        struct thread *f = list_entry(e, struct thread, childelem);
         printf("child %d\n", f->tid);
         if(f->tid == child_tid) {
             child = f;
