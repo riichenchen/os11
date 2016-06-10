@@ -306,5 +306,9 @@ int sys_open(const char *file_name) {
 */
 void sys_close(int fd) {
     filesys_unhash(fd);
-    file_close(file_lookup_from_fd(fd));
+    struct file *file = file_lookup_from_fd(fd);
+    if (file) {
+        list_remove(&file->thread_listelem);
+        file_close(file);
+    }
 }
