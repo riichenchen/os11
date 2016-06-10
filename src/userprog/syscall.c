@@ -151,9 +151,9 @@ int sys_wait(tid_t pid) {
     Execute cmd_line
 */
 int sys_exec(const char *cmd_line) {
-    printf("sys_exec cmd_line = %s\n", cmd_line);
+    //printf("sys_exec cmd_line = %s\n", cmd_line);
     int status = process_execute(cmd_line);
-    printf("sys_exec status = %d\n", status);
+    //printf("sys_exec status = %d\n", status);
     if(status == TID_ERROR) {
         printf("sys_exec TID_ERROR\n");
         sys_exit(-1);
