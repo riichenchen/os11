@@ -72,6 +72,7 @@ static void kill(struct intr_frame *f) {
      
     /* The interrupt frame's code segment value tells us where the
        exception originated. */
+    struct thread *curr = thread_current();
     switch (f->cs) {
     case SEL_UCSEG:
         /* User's code segment, so it's a user exception, as we
@@ -79,15 +80,15 @@ static void kill(struct intr_frame *f) {
         printf("%s: dying due to interrupt %#04x (%s).\n",
                thread_name(), f->vec_no, intr_name(f->vec_no));
         intr_dump_frame(f);
+        printf("%s: exit(-1)\n", curr->name);
+        curr->exit_status = -1;
         thread_exit(); 
-
     case SEL_KCSEG:
         /* Kernel's code segment, which indicates a kernel bug.
            Kernel code shouldn't throw exceptions.  (Page faults
            may cause kernel exceptions--but they shouldn't arrive
            here.)  Panic the kernel to make the point.  */
         intr_dump_frame(f);
-        thread_current()->exit_status = -1;
         PANIC("Kernel bug - unexpected interrupt in kernel"); 
 
     default:
@@ -95,7 +96,8 @@ static void kill(struct intr_frame *f) {
            kernel. */
         printf("Interrupt %#04x (%s) in unknown segment %04x\n",
                f->vec_no, intr_name(f->vec_no), f->cs);
-        thread_exit();
+        thread_current()->exit_status = -1;
+        // thread_exit();
     }
 }
 

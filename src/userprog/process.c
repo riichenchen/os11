@@ -48,8 +48,10 @@ tid_t process_execute(const char *file_name) {
 
     /* Create a new thread to execute FILE_NAME. */
     tid = thread_create(file_name, PRI_DEFAULT, start_process, fn_copy);
-    if (tid == TID_ERROR)
+    if (tid == TID_ERROR) {
+        printf("process_execute TID_ERROR\n");
         palloc_free_page(fn_copy); 
+    }
     return tid;
 }
 
@@ -74,42 +76,23 @@ static void start_process(void *file_name_) {
     name = strtok_r(name_copy, " ", &name_save_ptr);
     strlcpy(thread_current()->name, name, 16);
     success = load(name, &if_.eip, &if_.esp);
-    //success = load("echo", &if_.eip, &if_.esp);
     palloc_free_page(name_copy);
 
-    //printf("%x \n", (uint32_t) if_.esp);
-
      /* Parse "file_name" to separate file_name and arguments by spaces.
-    Insert directly into the stack. */
-    // struct cmdline_arg args[MAX_ARGS];
-    // int num_args = 0;
-    // char arg[ARG_MAX_LENGTH];
-    // char * args[MAX_ARGS];
-    
-/*    struct cmdline_arg {
-    struct list_elem elem;
-    char arg[ARG_MAX_LENGTH];
-};
+        Insert directly into the stack. */
 
-    struct list arg_list;
-    list_init (&arg_list); */
     char *arg_locs[MAX_ARGS];
     int argc = 0;
     char *token, *save_ptr;
-    //printf("Orig: %s\n", file_name);
     strrev(file_name, strlen(file_name));
 
     for (token = strtok_r(file_name, " ", &save_ptr); token != NULL;
          token = strtok_r(NULL, " ", &save_ptr)) {
-            //printf("%s\n", token);
             int tokenLen = strlen(token);
             if(tokenLen > 0 && tokenLen < ARG_MAX_LENGTH) {
                 strrev(token, tokenLen);
-                //printf("%s\n", token);
                 if_.esp -= (tokenLen + 1);
-                //printf("%x \n", (uint32_t) if_.esp);
                 strlcpy(if_.esp, token, tokenLen + 1);
-                //printf("%s\n", (char *) if_.esp);
                 arg_locs[argc++] = if_.esp;
             } else {
                 printf("load: Tokenize failed. token length 0 or too long\n");
@@ -123,41 +106,24 @@ static void start_process(void *file_name_) {
     }
 
     if_.esp = (void *)((uint32_t)if_.esp & ~3);
-    //printf("%x \n", (uint32_t) if_.esp);
 
     if_.esp -= sizeof(char *);
     *((char **) if_.esp) = 0;
-    //printf("%x \n", (uint32_t) if_.esp);
 
     int i;
     for (i = 0; i < argc; i++) {
         if_.esp -= sizeof(char *);
         *((char **) if_.esp) = arg_locs[i];
-        //printf("%x \n", (uint32_t) if_.esp);
     }
 
     if_.esp -= sizeof(char **);
     *((char ***) if_.esp) = if_.esp + sizeof(char **);    
-    //printf("%x \n", (uint32_t) if_.esp);
 
     if_.esp -= sizeof(int);
     *((int *) if_.esp) = argc;  
-    //printf("%x \n", (uint32_t) if_.esp);
 
     if_.esp -= sizeof(uint32_t);
     *((uint32_t *) if_.esp) = 0;
-
-    //printf("%x \n", (uint32_t) if_.esp);
-    //hex_dump(0, if_.esp, 160, true);
-
-    // if(num_args == 0) {
-    //     printf("load: Failed. file_name is literally nothing.\n");
-    //     goto done;
-    // }
-
-    // file_name = args[0];
-    // printf("file-name? %s\n", file_name);
-
 
 done:
     /* If load failed, quit. */
@@ -184,21 +150,16 @@ done:
     This function will be implemented in problem 2-2.  For now, it does
     nothing. */
 int process_wait(tid_t child_tid UNUSED) {
-    printf("PROCESS_WAIT. HERPDERP HERPDERP. tryna find %d\n", child_tid);
     /* Look for child in the current thread's list of children */
     struct thread *cur = thread_current();
     struct thread *child = NULL;
     struct list_elem *e;
 
-    printf("me is %d\n", cur->tid);
-
     for (e = list_begin(&cur->child_list); e != list_end(&cur->child_list);
            e = list_next(e)) {
-        struct thread *f = list_entry(e, struct thread, elem);
-        printf("child %d\n", f->tid);
+        struct thread *f = list_entry(e, struct thread, childelem);
         if(f->tid == child_tid) {
             child = f;
-            printf("yoyoyo i found your lost child\n");
             break;
         }
     }
@@ -206,26 +167,15 @@ int process_wait(tid_t child_tid UNUSED) {
     /* We've waited for and killed the child already as it is not in the list
     of children. */
     if(child == NULL) {
-        printf("it's a dead child at that\n");
         return -1;
     } else {
-        printf("get rid of the body\n");
         list_remove(&child->childelem);
     
-        printf("and wait for the child to die\n");
         /* Wait for the child to die */
         sema_down(&child->semapore);
-
-        printf("return it, %d\n", child->exit_status);
         /* Reap the dead child */
         return child->exit_status;
     }
-
-
-    // while (1) {
-
-    // }
-    //return -1;
 }
 
 /*! Free the current process's resources. */

@@ -444,5 +444,6 @@ bool fd_less (const struct hash_elem *a_, const struct hash_elem *b_,
 unsigned fd_hash (const struct hash_elem *p_, void *aux UNUSED)
 {
   const struct file *f = hash_entry (p_, struct file, hash_elem);
-  return hash_bytes (&f->fd, sizeof f->fd);
+  return f->fd;
+  //return hash_bytes (&f->fd, sizeof f->fd);
 }

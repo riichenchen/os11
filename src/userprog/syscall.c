@@ -18,8 +18,6 @@ static void validate_buffer(void *buf, unsigned size);
 
 void syscall_init(void) {
     intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
-
-    printf("SETUP SYSCALL_INIT\n");
 }
 
 /*
@@ -31,8 +29,6 @@ void syscall_init(void) {
 static void syscall_handler(struct intr_frame *f UNUSED) {
     void *stack_ptr = f->esp;
     int syscall_no = read_arg32(stack_ptr);
-
-    printf("syscall_no = %d. AINT THAT SWELL HUH AINT IT\n", syscall_no);
 
     switch (syscall_no) {
         case SYS_HALT:
@@ -155,7 +151,14 @@ int sys_wait(tid_t pid) {
     Execute cmd_line
 */
 int sys_exec(const char *cmd_line) {
-    return process_execute(cmd_line);
+    //printf("sys_exec cmd_line = %s\n", cmd_line);
+    int status = process_execute(cmd_line);
+    //printf("sys_exec status = %d\n", status);
+    if(status == TID_ERROR) {
+        printf("sys_exec TID_ERROR\n");
+        sys_exit(-1);
+    }
+    return status;
 }
 
 /*
@@ -170,13 +173,10 @@ int sys_exec(const char *cmd_line) {
 int sys_write(int fd, void *buffer, unsigned size) {
     int bytes_written = 0;
 
+    validate_buffer(buffer, size);
+
     /* fd == 1: Write to console */
     if (fd == 1) {
-        if (readbyte_user((uint8_t *) buffer) == -1 ||
-            readbyte_user((uint8_t *)(buffer + size - 1)) == -1) {
-            sys_exit(-1);
-        }
-
         /* Output buffers longer than 300 in chunks */
         while (size > BUFFER_CHUNK) {
             putbuf((char *) buffer, BUFFER_CHUNK);
@@ -187,9 +187,8 @@ int sys_write(int fd, void *buffer, unsigned size) {
         putbuf((char *) buffer, (size_t) size);
         return bytes_written + size;
     } else {
-        printf("write to non-console %d\n", fd);
-        return file_write(file_lookup_from_fd(fd), buffer, size);
-        // thread_exit();
+        struct file *file = file_lookup_from_fd(fd);
+        return file ? file_write(file, buffer, size) : -1;
     }
 
     return bytes_written;
@@ -252,8 +251,8 @@ int sys_read(int fd, void *buffer, unsigned size) {
         return size;
     }
     else {
-        struct file *f = file_lookup_from_fd(fd);
-        return f ? file_read(f, buffer, size) : -1;
+        struct file *file = file_lookup_from_fd(fd);
+        return file ? file_read(file, buffer, size) : -1;
     }
 }
 
@@ -287,7 +286,7 @@ int sys_open(const char *file) {
     if (readbyte_user((uint8_t *) file) == -1) {
         sys_exit(-1);
     }
-    struct file *f = filesys_open(file);
+    struct file *f = filesys_open_and_hash(file);
     if (f == NULL) {
         return -1;
     }
@@ -303,6 +302,7 @@ int sys_open(const char *file) {
    @param fd The file descriptor to close
 */
 void sys_close(int fd) {
+    filesys_unhash(fd);
     file_close(file_lookup_from_fd(fd));
     /* Remove file from current thread list? */
 }
