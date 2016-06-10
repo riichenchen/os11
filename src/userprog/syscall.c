@@ -19,7 +19,6 @@ static void validate_buffer(void *buf, unsigned size);
 void syscall_init(void) {
     intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
 
-    printf("SETUP SYSCALL_INIT\n");
 }
 
 /*
@@ -153,7 +152,14 @@ int sys_wait(tid_t pid) {
     Execute cmd_line
 */
 int sys_exec(const char *cmd_line) {
-    return process_execute(cmd_line);
+    printf("sys_exec cmd_line = %s\n", cmd_line);
+    int status = process_execute(cmd_line);
+    printf("sys_exec status = %d\n", status);
+    if(status == TID_ERROR) {
+        printf("sys_exec TID_ERROR\n");
+        sys_exit(-1);
+    }
+    return status;
 }
 
 /*
@@ -185,7 +191,6 @@ int sys_write(int fd, void *buffer, unsigned size) {
         putbuf((char *) buffer, (size_t) size);
         return bytes_written + size;
     } else {
-        printf("write to non-console %d\n", fd);
         return file_write(file_lookup_from_fd(fd), buffer, size);
         // thread_exit();
     }
