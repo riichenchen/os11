@@ -152,6 +152,9 @@ int sys_wait(tid_t pid) {
 */
 int sys_exec(const char *cmd_line) {
     //printf("sys_exec cmd_line = %s\n", cmd_line);
+    if (readbyte_user((uint8_t *) cmd_line) == -1) {
+        sys_exit(-1);
+    }
     int status = process_execute(cmd_line);
     //printf("sys_exec status = %d\n", status);
     if(status == TID_ERROR) {
