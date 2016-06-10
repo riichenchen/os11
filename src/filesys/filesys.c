@@ -7,7 +7,7 @@
 #include "filesys/inode.h"
 #include "filesys/directory.h"
 #include "threads/malloc.h"
-// #include <hash.h>
+#include <hash.h>
 
 /*! Partition that contains the file system. */
 struct block *fs_device;
@@ -27,7 +27,7 @@ void filesys_init(bool format) {
     inode_init();
     free_map_init();
 
-    next_fd = 1;
+    next_fd = 2;
     hash_table = (struct hash *)malloc(sizeof(struct hash));
     /* Initialize the hash table for converting fd to file */
     if(!hash_init(hash_table, fd_hash, fd_less, NULL)) {
@@ -74,7 +74,17 @@ struct file * filesys_open(const char *name) {
         dir_lookup(dir, name, &inode);
     dir_close(dir);
 
-    struct file *file = file_open(inode);
+    return file_open(inode);
+}
+
+/*! Opens the file with the given name, assigns it a file descriptor, and 
+    inserts the mapping into the hash table. Fails if either filesys_open or
+    hashing fails. */
+struct file * filesys_open_and_hash(const char *name) {
+    struct file *file = filesys_open(name);
+    if (!file) {
+        return NULL;
+    }
     file->fd = next_fd;
     next_fd++;
         
@@ -82,7 +92,6 @@ struct file * filesys_open(const char *name) {
     ASSERT(success == NULL);     
 
     return file;
-    //return file_open(inode);
 }
 
 /*! Deletes the file named NAME.  Returns true if successful, false on failure.
@@ -106,7 +115,7 @@ static void do_format(void) {
     printf("done.\n");
 }
 
-/* Returns a file from the file descriptor via a lookup in the hash table. */
+/*! Returns a file from the file descriptor via a lookup in the hash table. */
 struct file *file_lookup_from_fd(int fd) {
     struct file f;
     struct hash_elem *e;
@@ -115,3 +124,13 @@ struct file *file_lookup_from_fd(int fd) {
     return e != NULL ? hash_entry (e, struct file, hash_elem) : NULL;
 }
 
+/*! Removes a file descriptor from the hash table, if it is there */
+void filesys_unhash(int fd) {
+    struct file f;
+    struct hash_elem *e;
+    f.fd = fd;
+    e = hash_find(hash_table, &f.hash_elem);
+    if (e) {
+        hash_delete(hash_table, e);
+    }
+}

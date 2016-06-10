@@ -170,17 +170,7 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
     tid = t->tid = allocate_tid();
 
     /* Add newly created thread to parent's child list. */
-    printf("Who am I? I am: %d\n", thread_current()->tid);
-    printf("What is my child's tid? Here it is: %d\n", tid);
     list_push_back(&thread_current()->child_list, &t->childelem);
-
-    struct list_elem *e;
-    for (e = list_begin(&thread_current()->child_list); e != list_end(&thread_current()->child_list);
-           e = list_next(e)) {
-        struct thread *f = list_entry(e, struct thread, elem);
-        printf("thread_create after insertion: child %d\n", f->tid);
-    }
-
 
     /* Stack frame for kernel_thread(). */
     kf = alloc_frame(t, sizeof *kf);
@@ -406,8 +396,6 @@ static bool is_thread(struct thread *t) {
 
 /*! Does basic initialization of T as a blocked thread named NAME. */
 static void init_thread(struct thread *t, const char *name, int priority) {
-    printf("SETUP INIT_THREAD\n");
-
     enum intr_level old_level;
 
     ASSERT(t != NULL);

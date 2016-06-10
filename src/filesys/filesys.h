@@ -18,9 +18,11 @@ void filesys_init(bool format);
 void filesys_done(void);
 bool filesys_create(const char *name, off_t initial_size);
 struct file *filesys_open(const char *name);
+struct file * filesys_open_and_hash(const char *name);
 bool filesys_remove(const char *name);
 
 struct file *file_lookup_from_fd(int fd);
+void filesys_unhash(int fd);
 
 #endif /* filesys/filesys.h */
 
