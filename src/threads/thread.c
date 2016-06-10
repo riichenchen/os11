@@ -396,7 +396,6 @@ static bool is_thread(struct thread *t) {
 
 /*! Does basic initialization of T as a blocked thread named NAME. */
 static void init_thread(struct thread *t, const char *name, int priority) {
-
     enum intr_level old_level;
 
     ASSERT(t != NULL);

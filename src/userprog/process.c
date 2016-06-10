@@ -78,42 +78,23 @@ static void start_process(void *file_name_) {
     name = strtok_r(name_copy, " ", &name_save_ptr);
     strlcpy(thread_current()->name, name, 16);
     success = load(name, &if_.eip, &if_.esp);
-    //success = load("echo", &if_.eip, &if_.esp);
     palloc_free_page(name_copy);
 
-    //printf("%x \n", (uint32_t) if_.esp);
-
      /* Parse "file_name" to separate file_name and arguments by spaces.
-    Insert directly into the stack. */
-    // struct cmdline_arg args[MAX_ARGS];
-    // int num_args = 0;
-    // char arg[ARG_MAX_LENGTH];
-    // char * args[MAX_ARGS];
-    
-/*    struct cmdline_arg {
-    struct list_elem elem;
-    char arg[ARG_MAX_LENGTH];
-};
+        Insert directly into the stack. */
 
-    struct list arg_list;
-    list_init (&arg_list); */
     char *arg_locs[MAX_ARGS];
     int argc = 0;
     char *token, *save_ptr;
-    //printf("Orig: %s\n", file_name);
     strrev(file_name, strlen(file_name));
 
     for (token = strtok_r(file_name, " ", &save_ptr); token != NULL;
          token = strtok_r(NULL, " ", &save_ptr)) {
-            //printf("%s\n", token);
             int tokenLen = strlen(token);
             if(tokenLen > 0 && tokenLen < ARG_MAX_LENGTH) {
                 strrev(token, tokenLen);
-                //printf("%s\n", token);
                 if_.esp -= (tokenLen + 1);
-                //printf("%x \n", (uint32_t) if_.esp);
                 strlcpy(if_.esp, token, tokenLen + 1);
-                //printf("%s\n", (char *) if_.esp);
                 arg_locs[argc++] = if_.esp;
             } else {
                 printf("load: Tokenize failed. token length 0 or too long\n");
@@ -127,41 +108,24 @@ static void start_process(void *file_name_) {
     }
 
     if_.esp = (void *)((uint32_t)if_.esp & ~3);
-    //printf("%x \n", (uint32_t) if_.esp);
 
     if_.esp -= sizeof(char *);
     *((char **) if_.esp) = 0;
-    //printf("%x \n", (uint32_t) if_.esp);
 
     int i;
     for (i = 0; i < argc; i++) {
         if_.esp -= sizeof(char *);
         *((char **) if_.esp) = arg_locs[i];
-        //printf("%x \n", (uint32_t) if_.esp);
     }
 
     if_.esp -= sizeof(char **);
     *((char ***) if_.esp) = if_.esp + sizeof(char **);    
-    //printf("%x \n", (uint32_t) if_.esp);
 
     if_.esp -= sizeof(int);
     *((int *) if_.esp) = argc;  
-    //printf("%x \n", (uint32_t) if_.esp);
 
     if_.esp -= sizeof(uint32_t);
     *((uint32_t *) if_.esp) = 0;
-
-    //printf("%x \n", (uint32_t) if_.esp);
-    //hex_dump(0, if_.esp, 160, true);
-
-    // if(num_args == 0) {
-    //     printf("load: Failed. file_name is literally nothing.\n");
-    //     goto done;
-    // }
-
-    // file_name = args[0];
-    // printf("file-name? %s\n", file_name);
-
 
 done:
     /* If load failed, quit. */
@@ -193,7 +157,6 @@ int process_wait(tid_t child_tid UNUSED) {
     struct thread *child = NULL;
     struct list_elem *e;
 
-
     for (e = list_begin(&cur->child_list); e != list_end(&cur->child_list);
            e = list_next(e)) {
         struct thread *f = list_entry(e, struct thread, childelem);
@@ -212,16 +175,9 @@ int process_wait(tid_t child_tid UNUSED) {
     
         /* Wait for the child to die */
         sema_down(&child->semapore);
-
         /* Reap the dead child */
         return child->exit_status;
     }
-
-
-    // while (1) {
-
-    // }
-    //return -1;
 }
 
 /*! Free the current process's resources. */
