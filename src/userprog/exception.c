@@ -97,7 +97,7 @@ static void kill(struct intr_frame *f) {
         printf("Interrupt %#04x (%s) in unknown segment %04x\n",
                f->vec_no, intr_name(f->vec_no), f->cs);
         thread_current()->exit_status = -1;
-        // thread_exit();
+        thread_exit();
     }
 }
 

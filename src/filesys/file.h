@@ -6,11 +6,12 @@
 
 /*! An open file. */
 struct file {
-    struct inode *inode;        /*!< File's inode. */
-    off_t pos;                  /*!< Current position. */
-    bool deny_write;            /*!< Has file_deny_write() been called? */
-    struct hash_elem hash_elem; /* Needed for hash table hashing fd to file */
-    int fd;                     /* global file descriptor for this file */
+    struct inode *inode;         /*!< File's inode. */
+    off_t pos;                   /*!< Current position. */
+    bool deny_write;             /*!< Has file_deny_write() been called? */
+    struct list_elem thread_listelem; /*! For inclusion in thread file list */
+    struct hash_elem hash_elem;  /* Needed for hash table hashing fd to file */
+    int fd;                      /* global file descriptor for this file */
 };
 
 struct inode;

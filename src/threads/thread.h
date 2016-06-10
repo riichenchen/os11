@@ -111,6 +111,7 @@ struct thread {
     uint32_t *pagedir;                  /*!< Page directory. */
     int exit_status;
     struct list child_list;
+    struct list file_list;
     struct list_elem childelem;
     struct semaphore semapore;          /* Used by parent to wait on this thread.
                                            When death occurs, semapore increments. */
@@ -160,5 +161,6 @@ void thread_set_nice(int);
 int thread_get_recent_cpu(void);
 int thread_get_load_avg(void);
 
+void free_resources(struct thread *t);
 #endif /* threads/thread.h */
 

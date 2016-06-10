@@ -152,6 +152,9 @@ int sys_wait(tid_t pid) {
 */
 int sys_exec(const char *cmd_line) {
     //printf("sys_exec cmd_line = %s\n", cmd_line);
+    if (readbyte_user((uint8_t *) cmd_line) == -1) {
+        sys_exit(-1);
+    }
     int status = process_execute(cmd_line);
     //printf("sys_exec status = %d\n", status);
     if(status == TID_ERROR) {
@@ -282,18 +285,18 @@ unsigned sys_tell(int fd) {
    @return The file descriptor of the opened file, or -1 if the file could not
    be opened
 */
-int sys_open(const char *file) {
-    if (readbyte_user((uint8_t *) file) == -1) {
+int sys_open(const char *file_name) {
+    if (readbyte_user((uint8_t *) file_name) == -1) {
         sys_exit(-1);
     }
-    struct file *f = filesys_open_and_hash(file);
-    if (f == NULL) {
+    struct file *file = filesys_open_and_hash(file_name);
+    if (file == NULL) {
         return -1;
     }
     else {
         struct thread *curr = thread_current();
-        /* Need to assign file descriptor to thread? */
-        return f->fd;
+        list_push_front(&curr->file_list, &file->thread_listelem);
+        return file->fd;
     }
 }
 
@@ -303,6 +306,9 @@ int sys_open(const char *file) {
 */
 void sys_close(int fd) {
     filesys_unhash(fd);
-    file_close(file_lookup_from_fd(fd));
-    /* Remove file from current thread list? */
+    struct file *file = file_lookup_from_fd(fd);
+    if (file) {
+        list_remove(&file->thread_listelem);
+        file_close(file);
+    }
 }

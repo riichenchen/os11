@@ -13,6 +13,8 @@
 #include "threads/vaddr.h"
 #ifdef USERPROG
 #include "userprog/process.h"
+#include "filesys/filesys.h"
+#include "filesys/file.h"
 #endif
 
 /*! Random value for struct thread's `magic' member.
@@ -256,16 +258,17 @@ tid_t thread_tid(void) {
     returns to the caller. */
 void thread_exit(void) {
     ASSERT(!intr_context());
-
+    struct thread *curr = thread_current();
 #ifdef USERPROG
     process_exit();
+    free_resources(curr);
+
 #endif
 
     /* Remove thread from all threads list, set our status to dying,
        and schedule another process.  That process will destroy us
        when it calls thread_schedule_tail(). */
     intr_disable();
-    struct thread *curr = thread_current();
     list_remove(&curr->allelem);
     curr->status = THREAD_DYING;
     sema_up(&curr->semapore);
@@ -408,6 +411,7 @@ static void init_thread(struct thread *t, const char *name, int priority) {
     t->stack = (uint8_t *) t + PGSIZE;
     t->priority = priority;
     list_init(&t->child_list);
+    list_init(&t->file_list);
     sema_init(&t->semapore, 0);
     t->magic = THREAD_MAGIC;
 
@@ -515,8 +519,21 @@ static tid_t allocate_tid(void) {
 
     return tid;
 }
-
+
 /*! Offset of `stack' member within `struct thread'.
     Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof(struct thread, stack);
 
+/* 
+    Frees a thread's resources (closes and unhashes open files). Does not 
+    free the thread or the thread's lists itself.
+*/
+void free_resources(struct thread *t) {
+    struct file *file;
+    while (!list_empty(&t->file_list)) {
+        file = list_entry(list_pop_front(&t->file_list), struct file, 
+                          thread_listelem);
+        filesys_unhash(file->fd);
+        file_close(file);
+    }
+}
