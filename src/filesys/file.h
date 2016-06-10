@@ -2,6 +2,7 @@
 #define FILESYS_FILE_H
 
 #include "filesys/off_t.h"
+#include "threads/thread.h"
 #include <hash.h>
 
 /*! An open file. */
@@ -12,6 +13,7 @@ struct file {
     struct list_elem thread_listelem; /*! For inclusion in thread file list */
     struct hash_elem hash_elem;  /* Needed for hash table hashing fd to file */
     int fd;                      /* global file descriptor for this file */
+    tid_t owner;                 /* Thread that owns the file descriptor */
 };
 
 struct inode;

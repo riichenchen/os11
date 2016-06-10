@@ -229,7 +229,8 @@ bool sys_remove(const char *file) {
    @return The length, in bytes, of the open file
 */
 int sys_filesize(int fd) {
-    return file_length(file_lookup_from_fd(fd));
+    struct file *file = file_lookup_from_fd(fd);
+    return file ? file_length(file): -1;
 }
 
 /*
@@ -265,7 +266,10 @@ int sys_read(int fd, void *buffer, unsigned size) {
    @param position The position to seek to
 */
 void sys_seek(int fd, unsigned position) {
-    file_seek(file_lookup_from_fd(fd), position);
+    struct file *file = file_lookup_from_fd(fd);
+    if (file) {
+        file_seek(file, position);
+    }
 }
 
 /*
@@ -275,7 +279,8 @@ void sys_seek(int fd, unsigned position) {
    bytes from the beginning of the file.
 */
 unsigned sys_tell(int fd) {
-    return file_tell(file_lookup_from_fd(fd));
+    struct file *file = file_lookup_from_fd(fd);
+    return file ? file_tell(file) : -1;
 }
 
 /*
@@ -296,6 +301,7 @@ int sys_open(const char *file_name) {
     else {
         struct thread *curr = thread_current();
         list_push_front(&curr->file_list, &file->thread_listelem);
+        file->owner = curr->tid;
         return file->fd;
     }
 }
@@ -305,9 +311,9 @@ int sys_open(const char *file_name) {
    @param fd The file descriptor to close
 */
 void sys_close(int fd) {
-    filesys_unhash(fd);
     struct file *file = file_lookup_from_fd(fd);
     if (file) {
+        filesys_unhash(fd);
         list_remove(&file->thread_listelem);
         file_close(file);
     }

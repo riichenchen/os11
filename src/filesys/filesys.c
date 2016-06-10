@@ -121,7 +121,12 @@ struct file *file_lookup_from_fd(int fd) {
     struct hash_elem *e;
     f.fd = fd;
     e = hash_find(hash_table, &f.hash_elem);
-    return e != NULL ? hash_entry (e, struct file, hash_elem) : NULL;
+
+    if (e) {
+        struct file *file = hash_entry (e, struct file, hash_elem);
+        return file->owner == thread_current()->tid ? file : NULL;
+    }
+    return NULL;
 }
 
 /*! Removes a file descriptor from the hash table, if it is there */
