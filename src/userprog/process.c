@@ -38,7 +38,6 @@ tid_t process_execute(const char *file_name) {
     char *fn_copy;
     tid_t tid;
 
-
     /* Make a copy of FILE_NAME.
        Otherwise there's a race between the caller and load(). */
     fn_copy = palloc_get_page(0);
@@ -49,9 +48,16 @@ tid_t process_execute(const char *file_name) {
     /* Create a new thread to execute FILE_NAME. */
     tid = thread_create(file_name, PRI_DEFAULT, start_process, fn_copy);
     if (tid == TID_ERROR) {
-        printf("process_execute TID_ERROR\n");
         palloc_free_page(fn_copy); 
     }
+
+    /* Unsuccessful load. */
+    struct thread *cur = thread_current();
+    sema_down(&cur->semapore_load);
+    if(!cur->child_load_success) {
+        return TID_ERROR;
+    }
+
     return tid;
 }
 
@@ -67,10 +73,12 @@ static void start_process(void *file_name_) {
     if_.cs = SEL_UCSEG;
     if_.eflags = FLAG_IF | FLAG_MBS;
 
+
     char *name_copy = palloc_get_page(0);
     if (name_copy == NULL)
         goto done;
     strlcpy(name_copy, (char *) file_name_, PGSIZE);
+
 
     char *name, *name_save_ptr;
     name = strtok_r(name_copy, " ", &name_save_ptr);
@@ -78,58 +86,72 @@ static void start_process(void *file_name_) {
     success = load(name, &if_.eip, &if_.esp);
     palloc_free_page(name_copy);
 
-     /* Parse "file_name" to separate file_name and arguments by spaces.
-        Insert directly into the stack. */
+    if(success) {
+         /* Parse "file_name" to separate file_name and arguments by spaces.
+            Insert directly into the stack. */
 
-    char *arg_locs[MAX_ARGS];
-    int argc = 0;
-    char *token, *save_ptr;
-    strrev(file_name, strlen(file_name));
+        char *arg_locs[MAX_ARGS];
+        int argc = 0;
+        char *token, *save_ptr;
+        strrev(file_name, strlen(file_name));
 
-    for (token = strtok_r(file_name, " ", &save_ptr); token != NULL;
-         token = strtok_r(NULL, " ", &save_ptr)) {
-            int tokenLen = strlen(token);
-            if(tokenLen > 0 && tokenLen < ARG_MAX_LENGTH) {
-                strrev(token, tokenLen);
-                if_.esp -= (tokenLen + 1);
-                strlcpy(if_.esp, token, tokenLen + 1);
-                arg_locs[argc++] = if_.esp;
-            } else {
-                printf("load: Tokenize failed. token length 0 or too long\n");
-                goto done;
-            }
-            
-            if (argc >= MAX_ARGS) {
-                printf("load: Failed. More than MAX_ARGS arguments.\n");
-                goto done;
-            }
-    }
 
-    if_.esp = (void *)((uint32_t)if_.esp & ~3);
+        for (token = strtok_r(file_name, " ", &save_ptr); token != NULL;
+             token = strtok_r(NULL, " ", &save_ptr)) {
+                int tokenLen = strlen(token);
+                if(tokenLen > 0 && tokenLen < ARG_MAX_LENGTH) {
 
-    if_.esp -= sizeof(char *);
-    *((char **) if_.esp) = 0;
+                    strrev(token, tokenLen);
+                    if_.esp -= (tokenLen + 1);
+                    strlcpy(if_.esp, token, tokenLen + 1);
+                    arg_locs[argc++] = if_.esp;
+                } else {
+                    printf("load: Tokenize failed. token length 0 or too long\n");
+                    goto done;
+                }
+                
+                if (argc >= MAX_ARGS) {
+                    printf("load: Failed. More than MAX_ARGS arguments.\n");
+                    goto done;
+                }
+        }
 
-    int i;
-    for (i = 0; i < argc; i++) {
+
+        if_.esp = (void *)((uint32_t)if_.esp & ~3);
+
         if_.esp -= sizeof(char *);
-        *((char **) if_.esp) = arg_locs[i];
+        *((char **) if_.esp) = 0;
+
+        int i;
+        for (i = 0; i < argc; i++) {
+            if_.esp -= sizeof(char *);
+            *((char **) if_.esp) = arg_locs[i];
+        }
+
+        if_.esp -= sizeof(char **);
+        *((char ***) if_.esp) = if_.esp + sizeof(char **);    
+
+        if_.esp -= sizeof(int);
+        *((int *) if_.esp) = argc;  
+
+        if_.esp -= sizeof(uint32_t);
+        *((uint32_t *) if_.esp) = 0;
     }
-
-    if_.esp -= sizeof(char **);
-    *((char ***) if_.esp) = if_.esp + sizeof(char **);    
-
-    if_.esp -= sizeof(int);
-    *((int *) if_.esp) = argc;  
-
-    if_.esp -= sizeof(uint32_t);
-    *((uint32_t *) if_.esp) = 0;
 
 done:
     /* If load failed, quit. */
     palloc_free_page(file_name);
-    if (!success) 
+    struct thread *cur = thread_current();
+    if (!success) {
+        cur->parent->child_load_success = false;
+    } else {
+        cur->parent->child_load_success = true;
+    }
+    sema_up(&cur->parent->semapore_load);
+    if (!success) {
         thread_exit();
+    }
+
 
     /* Start the user process by simulating a return from an
        interrupt, implemented by intr_exit (in

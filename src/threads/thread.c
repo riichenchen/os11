@@ -172,7 +172,9 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
     tid = t->tid = allocate_tid();
 
     /* Add newly created thread to parent's child list. */
-    list_push_back(&thread_current()->child_list, &t->childelem);
+    struct thread *cur = thread_current();
+    list_push_back(&cur->child_list, &t->childelem);
+    t->parent = cur;
 
     /* Stack frame for kernel_thread(). */
     kf = alloc_frame(t, sizeof *kf);
@@ -191,6 +193,7 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
 
     /* Add to run queue. */
     thread_unblock(t);
+
 
     return tid;
 }
@@ -410,14 +413,18 @@ static void init_thread(struct thread *t, const char *name, int priority) {
     strlcpy(t->name, name, sizeof t->name);
     t->stack = (uint8_t *) t + PGSIZE;
     t->priority = priority;
-    list_init(&t->child_list);
-    list_init(&t->file_list);
-    sema_init(&t->semapore, 0);
     t->magic = THREAD_MAGIC;
-
     
 #ifdef USERPROG
     t->exit_status = 0;
+    t->child_load_success = true;
+    /* set to NULL. will be overwritten in thread_create for threads that
+    are children */
+    t->parent = NULL;
+    list_init(&t->child_list);
+    list_init(&t->file_list);
+    sema_init(&t->semapore, 0);
+    sema_init(&t->semapore_load, 0);
 #endif
 
     old_level = intr_disable();

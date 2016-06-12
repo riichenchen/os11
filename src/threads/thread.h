@@ -115,6 +115,11 @@ struct thread {
     struct list_elem childelem;
     struct semaphore semapore;          /* Used by parent to wait on this thread.
                                            When death occurs, semapore increments. */
+    struct thread *parent;
+    bool child_load_success;
+    struct semaphore semapore_load;     /* Used to wait for the child to load its
+                                           executable. */
+
     /**@{*/
 #endif
 
