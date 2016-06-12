@@ -27,6 +27,8 @@ void filesys_init(bool format) {
     inode_init();
     free_map_init();
 
+    lock_init(&lock_globe);
+
     next_fd = 2;
     hash_table = (struct hash *)malloc(sizeof(struct hash));
     /* Initialize the hash table for converting fd to file */
@@ -43,13 +45,18 @@ void filesys_init(bool format) {
 
 /*! Shuts down the file system module, writing any unwritten data to disk. */
 void filesys_done(void) {
+    // lock_acquire(&lock_globe);
+    hash_clear(hash_table, NULL);
+    free(hash_table);
     free_map_close();
+    // lock_release(&lock_globe);
 }
 
 /*! Creates a file named NAME with the given INITIAL_SIZE.  Returns true if
     successful, false otherwise.  Fails if a file named NAME already exists,
     or if internal memory allocation fails. */
 bool filesys_create(const char *name, off_t initial_size) {
+    lock_acquire(&lock_globe);
     block_sector_t inode_sector = 0;
     struct dir *dir = dir_open_root();
     bool success = (dir != NULL &&
@@ -60,6 +67,7 @@ bool filesys_create(const char *name, off_t initial_size) {
         free_map_release(inode_sector, 1);
     dir_close(dir);
 
+    lock_release(&lock_globe);
     return success;
 }
 
@@ -67,6 +75,7 @@ bool filesys_create(const char *name, off_t initial_size) {
     or a null pointer otherwise.  Fails if no file named NAME exists,
     or if an internal memory allocation fails. */
 struct file * filesys_open(const char *name) {
+    lock_acquire(&lock_globe);
     struct dir *dir = dir_open_root();
     struct inode *inode = NULL;
 
@@ -74,6 +83,7 @@ struct file * filesys_open(const char *name) {
         dir_lookup(dir, name, &inode);
     dir_close(dir);
 
+    lock_release(&lock_globe);
     return file_open(inode);
 }
 

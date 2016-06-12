@@ -277,6 +277,9 @@ void thread_exit(void) {
     sema_up(&curr->semapore);
     schedule();
     NOT_REACHED();
+    // free(cur);
+    // palloc_free_page(curr);
+
 }
 
 /*! Yields the CPU.  The current thread is not put to sleep and

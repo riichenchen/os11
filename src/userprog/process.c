@@ -176,6 +176,7 @@ int process_wait(tid_t child_tid UNUSED) {
     struct thread *cur = thread_current();
     struct thread *child = NULL;
     struct list_elem *e;
+    int exit_status;
 
     for (e = list_begin(&cur->child_list); e != list_end(&cur->child_list);
            e = list_next(e)) {
@@ -189,16 +190,26 @@ int process_wait(tid_t child_tid UNUSED) {
     /* We've waited for and killed the child already as it is not in the list
     of children. */
     if(child == NULL) {
-        return -1;
+        // palloc_free_page(child);
+        exit_status = -1;
     } else {
         list_remove(&child->childelem);
     
         /* Wait for the child to die */
         sema_down(&child->semapore);
         /* Reap the dead child */
-        return child->exit_status;
+        // palloc_free_page(child);
+        exit_status = child->exit_status;
     }
+
+    if (child != NULL && child->status == THREAD_DYING) {
+        ASSERT(child != cur);
+        palloc_free_page(child);
+    }
+
+    return exit_status;
 }
+
 
 /*! Free the current process's resources. */
 void process_exit(void) {

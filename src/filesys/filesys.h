@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include "filesys/off_t.h"
 #include <hash.h>
+#include "threads/synch.h"
 
 
 /*! Sectors of system file inodes. @{ */
@@ -13,6 +14,8 @@
 
 /*! Block device that contains the file system. */
 struct block *fs_device;
+
+struct lock lock_globe;
 
 void filesys_init(bool format);
 void filesys_done(void);
