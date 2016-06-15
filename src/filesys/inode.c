@@ -10,13 +10,41 @@
 /*! Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
 
+#define NUM_DIRECT 108
+#define NUM_INDIRECT 16
+#define NUM_DOUBLE_INDIRECT 1
+#define NUM_SECTORS_IN_BLOCK BLOCK_SECTOR_SIZE / 4;
+#define NUM_SECTORS_INDIRECT NUM_INDIRECT * NUM_SECTORS_IN_BLOCK;
+#define NUM_SECTORS_DOUBLE_INDIRECT NUM_DOUBLE_INDIRECT * NUM_SECTORS_IN_BLOCK * NUM_SECTORS_IN_BLOCK;
+
+int min(int a, int b);
+
 /*! On-disk inode.
     Must be exactly BLOCK_SECTOR_SIZE bytes long. */
+// struct inode_disk {
+//     block_sector_t start;               /*!< First data sector. */
+//     off_t length;                       /*!< File size in bytes. */
+//     unsigned magic;                     /*!< Magic number. */
+//     uint32_t unused[125];               /*!< Not used. */
+// };
+
 struct inode_disk {
-    block_sector_t start;               /*!< First data sector. */
-    off_t length;                       /*!< File size in bytes. */
-    unsigned magic;                     /*!< Magic number. */
-    uint32_t unused[125];               /*!< Not used. */
+    block_sector_t start;               /* First data sector */
+    off_t length;                       /* File size in bytes */
+    unsigned magic;                     /* Magic number */
+    block_sector_t direct[NUM_DIRECT];
+    block_sector_t indirect[NUM_INDIRECT];
+    block_sector_t double_indirect[NUM_DOUBLE_INDIRECT];
+};
+
+/* inode_single_indirect and inode_double_indirect are literally the
+same thing. I just define two different structs to keep myself sane. */
+struct sng_indir {
+    block_sector_t direct[NUM_SECTORS_IN_BLOCK];
+};
+
+struct dbl_indir {
+    block_sector_t indirect[NUM_SECTORS_IN_BLOCK];
 };
 
 /*! Returns the number of sectors to allocate for an inode SIZE
@@ -34,6 +62,8 @@ struct inode {
     int deny_write_cnt;                 /*!< 0: writes ok, >0: deny writes. */
     struct inode_disk data;             /*!< Inode content. */
 };
+
+
 
 /*! Returns the block device sector that contains byte offset POS
     within INODE.
@@ -72,23 +102,122 @@ bool inode_create(block_sector_t sector, off_t length) {
     ASSERT(sizeof *disk_inode == BLOCK_SECTOR_SIZE);
 
     disk_inode = calloc(1, sizeof *disk_inode);
-    if (disk_inode != NULL) {
-        size_t sectors = bytes_to_sectors(length);
-        disk_inode->length = length;
-        disk_inode->magic = INODE_MAGIC;
-        if (free_map_allocate(sectors, &disk_inode->start)) {
-            block_write(fs_device, sector, disk_inode);
-            if (sectors > 0) {
-                static char zeros[BLOCK_SECTOR_SIZE];
-                size_t i;
-              
-                for (i = 0; i < sectors; i++) 
-                    block_write(fs_device, disk_inode->start + i, zeros);
-            }
-            success = true; 
-        }
-        free(disk_inode);
+    if (disk_inode == NULL) {
+        return success;
     }
+
+    size_t sectors = bytes_to_sectors(length);
+    disk_inode->length = length;
+    disk_inode->magic = INODE_MAGIC;
+    // if (free_map_allocate(sectors, &disk_inode->start)) {
+    //     block_write(fs_device, sector, disk_inode);
+    //     if (sectors > 0) {
+    //         static char zeros[BLOCK_SECTOR_SIZE];
+    //         size_t i;
+          
+    //         for (i = 0; i < sectors; i++) 
+    //             block_write(fs_device, disk_inode->start + i, zeros);
+    //     }
+    //     success = true; 
+    // }
+
+    int i, num_direct = 0, num_indirect = 0, num_double_indirect = 0;
+    static char zeros[BLOCK_SECTOR_SIZE];
+    num_direct = (sectors <= NUM_DIRECT) ? sectors : NUM_DIRECT;
+    sectors -= NUM_DIRECT;
+    
+    for(i = 0; i < num_direct; i++) {
+        if(!free_map_allocate(1, &disk_inode->direct[i])) {
+            free(disk_inode);
+            return success;
+        }
+        block_write(fs_device, disk_inode->direct[i], zeros);
+    }
+
+    /* Singly indirect blocks */
+    /* I hope this isn't too confusing. If only there were math functions... */
+    if(sectors > 0) {
+        num_indirect = sectors / NUM_SECTORS_IN_BLOCK + (sectors % NUM_SECTORS_IN_BLOCK > 0);
+
+        /* Allocate the indirect blocks */
+        for(i = 0; i < num_indirect; i++) {
+            if(!free_map_allocate(1, &disk_inode->indirect[i])) {
+                free(disk_inode);
+                return success;
+            }
+        }
+
+        /* Allocate the inode_single_indirect blocks */
+        for(i = 0; i < num_indirect - 1; i++) {
+            for(j = 0; j < NUM_SECTORS_IN_BLOCK; j++) {
+                if(!free_map_allocate(1, &((struct sng_indir) disk_inode->indirect[i])[j])) {
+                    free(disk_inode);
+                    return success;
+                }
+                block_write(fs_device, &((struct sng_indir) disk_inode->indirect[i])[j], zeros);
+            }
+        }
+
+        /* Do the really awkward single indirect block which may not have all of the
+        direct blocks under allocated */
+        for(j = 0; j < (sectors - 1) % NUM_SECTORS_IN_BLOCK + 1; j++) {
+            if(!free_map_allocate(1, &((struct sng_indir) disk_inode->indirect[num_indirect - 1])[j])) {
+                free(disk_inode);
+                return success;
+            }
+            block_write(fs_device, &((struct sng_indir) disk_inode->indirect[num_indirect - 1])[j], zeros);
+        }
+    }
+    sectors -= NUM_SECTORS_INDIRECT;
+
+    /* Double indirects */
+    /* If I want this to handle things greater than 8MB, then I'd add more
+    to calculate the double indirects. But for now, who cares. */
+    if(sectors > 0) {
+        num_double_indirect = 1;
+
+        /* Allocate the double indirect block */
+        if(!free_map_allocate(1, &disk_inode->double_indirect[0])) {
+            free(disk_inode);
+            return success;
+        }
+
+        /* Iterate throught he singly indirect inodes and allocate them */
+        for(i = 0; i < NUM_SECTORS_IN_BLOCK && sectors > 0; i++) {
+            for(j = 0; j < NUM_SECTORS_IN_BLOCK && sectors > 0; j++) {
+                struct dbl_indir *dbl = (struct dbl_indir *)(&disk_inode->double_indirect[0]);
+                if(!free_map_allocate(1, ((struct inode_double_indirect) &disk_inode->double_indirect[0])[i])) {
+                    free(disk_inode);
+                    return success;
+                }
+                block_write(fs_device, ((struct inode_double_indirect) &disk_inode->double_indirect[0])[j], zeros);
+                sectors--;
+            }
+        }
+    }
+
+    // if(free_map_allocate(num_direct + num_indirect + num_double_indirect), &disk_inode->start) {
+
+    // }
+    
+    /* Allocate 1 block at a time so we can store the block_sector address
+    in a nice array as we have set it up */
+    if (free_map_allocate(num_direct, &disk_inode->start)) {
+        block_write(fs_device, sector, disk_inode);
+        if (num_direct > 0) { /* If we just allocated something, zero it out */
+            static char zeros[BLOCK_SECTOR_SIZE];
+            size_t i;
+            for (i = 0; i < sectors; i++) 
+                block_write(fs_device, disk_inode->start + i, zeros);
+        }
+
+        if(free_map_allocate(num_indirect, ))
+
+
+        success = true; 
+    }
+
+    free(disk_inode);
     return success;
 }
 
@@ -300,3 +429,8 @@ off_t inode_length(const struct inode *inode) {
     return inode->data.length;
 }
 
+int min(int a, int b) {
+    if(a < b)
+        return a;
+    return b;
+}
